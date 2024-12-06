@@ -7,7 +7,6 @@ const wordService = new WordService();
 
 export const WordGame: React.FC = () => {
   const [guess, setGuess] = useState('');
-  const [results, setResults] = useState<GuessResult[]>([]);
   const [error, setError] = useState('');
   const [processors, setProcessors] = useState<string[]>([]);
   const [selectedProcessor, setSelectedProcessor] = useState('');
@@ -16,6 +15,8 @@ export const WordGame: React.FC = () => {
   const [targetWord, setTargetWord] = useState('');
   const [wordSize, setWordSize] = useState(5);
   const [seed, setSeed] = useState<number | undefined>();
+  const [guessCount, setGuessCount] = useState(0);
+  const [guessHistory, setGuessHistory] = useState<GuessResult[][]>([]);
 
   useEffect(() => {
     loadProcessors();
@@ -43,13 +44,16 @@ export const WordGame: React.FC = () => {
     }
   };
 
-  const resetGame = () => {
-    setResults([]);
+  const resetGame = (e?: any) => {
+    e?.preventDefault();
     setIsCorrect(false);
     setGuess('');
+    setGuessCount(0);
+    setGuessHistory([]);
     if (gameMode === GameMode.WORD) {
       setTargetWord('');
     }
+    setError('');
   };
 
   const handleModeChange = (mode: GameMode) => {
@@ -84,8 +88,8 @@ export const WordGame: React.FC = () => {
         default:
           throw new Error('Invalid game mode');
       }
-
-      setResults(result);
+      setGuessHistory(prev => [...prev, result]);
+      setGuessCount(prev => prev + 1);
       setError('');
 
       const allCorrect = result.every(r => r.result === ResultKind.CORRECT);
@@ -123,6 +127,7 @@ export const WordGame: React.FC = () => {
           <select
             value={gameMode}
             onChange={(e) => handleModeChange(e.target.value as GameMode)}
+            disabled={isCorrect}
           >
             <option value={GameMode.DAILY}>Daily Word</option>
             <option value={GameMode.RANDOM}>Random Word</option>
@@ -137,6 +142,7 @@ export const WordGame: React.FC = () => {
           <select
             value={selectedProcessor}
             onChange={(e) => handleProcessorChange(e.target.value)}
+            disabled={isCorrect}
           >
             {processors.map(processor => (
               <option key={processor} value={processor}>
@@ -172,6 +178,7 @@ export const WordGame: React.FC = () => {
               max="10"
               value={wordSize}
               onChange={(e) => setWordSize(Number(e.target.value))}
+              disabled={isCorrect}
             />
           </label>
           <label>
@@ -181,6 +188,7 @@ export const WordGame: React.FC = () => {
               value={seed || ''}
               onChange={(e) => setSeed(e.target.value ? Number(e.target.value) : undefined)}
               placeholder="Random seed"
+              disabled={isCorrect}
             />
           </label>
         </div>
@@ -198,14 +206,19 @@ export const WordGame: React.FC = () => {
                 setWordSize(e.target.value.length)
               }}
               placeholder="Enter target word"
+              disabled={isCorrect}
             />
           </label>
         </div>
       )}
 
+      <div className="guess-count">
+        Attempts: {guessCount}
+      </div>
+
       {isCorrect && (
         <div className="success-message">
-          🎉 Congratulations! You've guessed the word correctly! 🎉
+          🎉 Congratulations! You've guessed the word correctly in {guessCount} {guessCount === 1 ? 'try' : 'tries'}! 🎉
         </div>
       )}
 
@@ -217,24 +230,31 @@ export const WordGame: React.FC = () => {
           maxLength={wordSize}
           placeholder={`Enter ${wordSize}-letter guess`}
           className="guess-input"
+          disabled={isCorrect}
         />
-        <button type="submit" className="submit-button">
-          Guess
-        </button>
+        {!isCorrect ? (
+          <button type="submit" className="submit-button">
+            Guess
+          </button>
+        ) : (
+          <button type="button" className="play-again-button" onClick={resetGame}>
+            Play Again
+          </button>
+        )}
       </form>
 
       {error && <div className="error">{error}</div>}
 
       <div className="results">
-        {results.length > 0 && (
-          <div className="word-grid">
-            {results.map((result, index) => (
-              <div key={index} className={getLetterClassName(result.result)}>
+        {guessHistory.map((guess, attemptIndex) => (
+          <div key={attemptIndex} className="word-grid">
+            {guess.map((result, letterIndex) => (
+              <div key={letterIndex} className={getLetterClassName(result.result)}>
                 {result.guess}
               </div>
             ))}
           </div>
-        )}
+        ))}
       </div>
     </div>
   );
